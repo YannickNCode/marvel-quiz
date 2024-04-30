@@ -1,40 +1,48 @@
 import { onAuthStateChanged } from 'firebase/auth';
+import { getDoc } from 'firebase/firestore';
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { auth } from '../Firebase/firebaseConfig';
+import { auth, user } from '../Firebase/firebaseConfig';
 import Logout from '../Logout';
 import Quiz from '../Quiz';
 
 const Welcome = () => {
 	const navigate = useNavigate();
-	const [loading, setLoading] = useState(true);
 	const [userSession, setUserSession] = useState(null);
+	const [userData, setUserData] = useState({});
 
 	useEffect(() => {
-		const unsubscribe = onAuthStateChanged(auth, (user) => {
-			if (user) {
-				setUserSession(user);
-				setLoading(false);
-			} else {
-				navigate('/');
-			}
+		const listener = onAuthStateChanged(auth, (user) => {
+			user ? setUserSession(user) : navigate('/');
 		});
 
-		return () => {
-			unsubscribe();
-		};
-	}, [navigate]);
+		if (!!userSession) {
+			const colRef = user(userSession.uid);
+			getDoc(colRef)
+				.then((snapshot) => {
+					if (snapshot.exists()) {
+						const docData = snapshot.data();
+						setUserData(docData);
+					}
+				})
+				.catch((error) => {
+					console.log(error);
+				});
+		}
 
-	return loading ? (
-		<div className="loader-container">
+		return listener();
+	}, [userSession]);
+
+	return userSession === null ? (
+		<>
 			<div className="loader"></div>
 			<p className="loaderText">Loading ...</p>
-		</div>
+		</>
 	) : (
-		<div className="quizz-bg">
+		<div className="quiz-bg">
 			<div className="container">
 				<Logout />
-				<Quiz />
+				<Quiz userData={userData} />
 			</div>
 		</div>
 	);
